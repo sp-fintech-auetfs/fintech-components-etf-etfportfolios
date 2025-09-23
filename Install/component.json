@@ -1,0 +1,132 @@
+{
+	"name" : "ETF Portfolios",
+	"route" : "etf/portfolios",
+	"description" : "<p>ETF Portfolios</p>",
+	"module_type" : "components",
+	"app_type" : "fintech",
+	"category" : "etf",
+	"version" : "0.0.0",
+	"repo" : "https://github.com/sp-fintech-auetfs/fintech-components-etf-etfportfolios",
+	"class" : "Apps\\Fintech\\Components\\Etf\\Portfolios\\PortfoliosComponent",
+	"dependencies" : 
+	{
+		"core" : 
+		{
+			"name" : "Core",
+			"version" : "0.0.0-rc.12",
+			"repo" : "https://github.com/sp-framework/core"
+		},
+		"apptype" : 
+		{
+			"name" : "Fintech",
+			"version" : "0.3.0",
+			"repo" : "https://github.com/sp-fintech/fintech"
+		},
+		"packages" : 
+		[
+			{
+				"name" : "AccountsUsers",
+				"version" : "0.2.0",
+				"repo" : "https://github.com/sp-fintech/fintech-packages-accounts-accountsusers"
+			},
+			
+			{
+				"name" : "AccountingAccounts",
+				"version" : "0.1.0",
+				"repo" : "https://github.com/sp-fintech/fintech-packages-tools-accountingaccounts"
+			},
+			
+			{
+				"name" : "AccountingBooks",
+				"version" : "0.1.0",
+				"repo" : "https://github.com/sp-fintech/fintech-packages-tools-accountingbooks"
+			},
+			
+			{
+				"name" : "AccountingTransactions",
+				"version" : "0.1.0",
+				"repo" : "https://github.com/sp-fintech/fintech-packages-tools-accountingtransactions"
+			},
+			
+			{
+				"name" : "EtfPortfolios",
+				"version" : "0.0.0",
+				"repo" : "https://github.com/sp-fintech-auetfs/fintech-packages-etf-etfportfolios"
+			},
+			
+			{
+				"name" : "EtfTransactions",
+				"version" : "0.0.0",
+				"repo" : "https://github.com/sp-fintech-auetfs/fintech-packages-etf-etftransactions"
+			},
+			
+			{
+				"name" : "EtfInvestments",
+				"version" : "0.0.0",
+				"repo" : "https://github.com/sp-fintech-auetfs/fintech-packages-etf-etfinvestments"
+			},
+			
+			{
+				"name" : "EtfPortfoliostimeline",
+				"version" : "0.0.0",
+				"repo" : "https://github.com/sp-fintech-auetfs/fintech-packages-etf-etfportfoliostimeline"
+			},
+			
+			{
+				"name" : "EtfAmcs",
+				"version" : "0.0.0",
+				"repo" : "https://github.com/sp-fintech-auetfs/fintech-packages-etf-etfamcs"
+			},
+			
+			{
+				"name" : "EtfStrategies",
+				"version" : "0.0.0",
+				"repo" : "https://github.com/sp-fintech-auetfs/fintech-packages-etf-etfstrategies"
+			}
+		],
+		"middlewares" : [],
+		"views" : 
+		[
+			{
+				"name" : "MfPortfolios",
+				"version" : "0.0.0",
+				"repo" : "https://github.com/sp-fintech-mutualfunds/fintech-views-mutualfunds-default-mfportfolios"
+			}
+		],
+		"externals" : 
+		{
+			"composer" : 
+			{
+				"require" : []
+			},
+			"config" : 
+			{
+				"allow-plugins" : []
+			},
+			"extra" : 
+			{
+				"patches" : []
+			}
+		}
+	},
+	"menu" : 
+	{
+		"etf" : 
+		{
+			"title" : "etf",
+			"icon" : "file-invoice-dollar",
+			"childs" : 
+			{
+				"portfolios" : 
+				{
+					"title" : "portfolios",
+					"icon" : "address-book",
+					"link" : "etf/portfolios"
+				}
+			}
+		},
+		"seq" : "0"
+	},
+	"settings" : [],
+	"widgets" : []
+}

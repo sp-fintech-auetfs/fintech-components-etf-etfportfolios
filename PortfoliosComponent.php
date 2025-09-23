@@ -1,0 +1,763 @@
+<?php
+
+namespace Apps\Fintech\Components\Etf\Portfolios;
+
+use Apps\Fintech\Packages\Accounting\Books\AccountingBooks;
+use Apps\Fintech\Packages\Accounts\Balances\AccountsBalances;
+use Apps\Fintech\Packages\Accounts\Users\AccountsUsers;
+use Apps\Fintech\Packages\Adminltetags\Traits\DynamicTable;
+use Apps\Fintech\Packages\Etf\Amcs\EtfAmcs;
+use Apps\Fintech\Packages\Etf\Categories\EtfCategories;
+use Apps\Fintech\Packages\Etf\Portfolios\EtfPortfolios;
+use Apps\Fintech\Packages\Etf\Portfoliostimeline\EtfPortfoliostimeline;
+use Apps\Fintech\Packages\Etf\Schemes\EtfSchemes;
+use Apps\Fintech\Packages\Etf\Strategies\EtfStrategies;
+use Apps\Fintech\Packages\Etf\Transactions\EtfTransactions;
+use System\Base\BaseComponent;
+
+class PortfoliosComponent extends BaseComponent
+{
+    use DynamicTable;
+
+    protected $etfPortfoliosPackage;
+
+    protected $etfPortfoliostimelinePackage;
+
+    protected $etfStrategiesPackage;
+
+    protected $etfCategoriesPackage;
+
+    protected $etfAmcsPackage;
+
+    protected $etfTransactionsPackage;
+
+    protected $accountsUsersPackage;
+
+    protected $accountingBooksPackage;
+
+    protected $schemesPackage;
+
+    protected $today;
+
+    protected $schemes = [];
+
+    public function initialize()
+    {
+        $this->today = (\Carbon\Carbon::now(new \DateTimeZone('Asia/Kolkata')))->toDateString();
+
+        $this->etfPortfoliosPackage = $this->usePackage(EtfPortfolios::class);
+
+        $this->etfPortfoliostimelinePackage = $this->usePackage(EtfPortfoliostimeline::class);
+
+        $this->etfStrategiesPackage = $this->usePackage(EtfStrategies::class);
+
+        $this->etfCategoriesPackage = $this->usePackage(EtfCategories::class);
+
+        $this->etfAmcsPackage = $this->usePackage(EtfAmcs::class);
+
+        $this->etfTransactionsPackage = $this->usePackage(EtfTransactions::class);
+
+        $this->accountsUsersPackage = $this->usePackage(AccountsUsers::class);
+
+        $this->accountingBooksPackage = $this->usePackage(AccountingBooks::class);
+    }
+
+    /**
+     * @acl(name=view)
+     */
+    public function viewAction()
+    {
+        $this->schemesPackage = $this->usePackage(EtfSchemes::class);
+
+        $this->view->currencySymbol = '$';
+        if (isset($this->access->auth->account()['profile']['locale_country_id']) && $this->access->auth->account()['profile']['locale_country_id'] !== 0) {
+            $country = $this->basepackages->geoCountries->getById((int) $this->access->auth->account()['profile']['locale_country_id']);
+
+            if ($country && isset($country['currency_symbol'])) {
+                $this->view->currencySymbol = $country['currency_symbol'];
+            }
+        }
+
+        $users = $this->accountsUsersPackage->getAccountsUserByAccountId($this->access->auth->account()['id']);
+
+        if (!$users) {
+            $users = [];
+        }
+
+        $this->view->users = $users;
+
+        if (isset($this->getData()['id'])) {
+            $this->view->today = $this->today;
+
+            $this->view->amcs = $this->etfAmcsPackage->getAll()->etfamcs;
+
+            $this->view->userBooks = [];
+
+            if (!isset($this->getData()['mode']) && $this->getData()['id'] != 0) {
+                $this->view->mode = 'transact';
+            } else if ((isset($this->getData()['mode']) && $this->getData()['mode'] === 'edit') ||
+                       $this->getData()['id'] == 0
+            ) {
+                $this->view->mode = 'edit';
+
+                if (count($users) > 0) {
+                    $userBooks = $this->accountingBooksPackage->getBooksByAccountId(['account_id' => $this->access->auth->account()['id']]);
+
+                    if (count($userBooks) > 0) {
+                        foreach ($userBooks as &$userBook) {
+                            if (isset($userBook['accounts']) && count($userBook['accounts']) > 0) {
+                                foreach ($userBook['accounts'] as $accountKey => $account) {
+                                    if ($account['type'] !== 'bank') {
+                                        unset($userBook['accounts'][$accountKey]);
+                                    }
+                                }
+                            }
+                        }
+
+                        $this->view->userBooks = $userBooks;
+                    }
+                }
+            } else if (isset($this->getData()['mode']) && $this->getData()['mode'] === 'transact' && $this->getData()['id'] != 0) {
+                $this->view->mode = 'transact';
+            } else if (isset($this->getData()['mode']) && $this->getData()['mode'] === 'strategies' && $this->getData()['id'] != 0) {
+                $this->view->mode = 'strategies';
+            } else if (isset($this->getData()['mode']) && $this->getData()['mode'] === 'timeline' && $this->getData()['id'] != 0) {
+                $this->view->mode = 'timeline';
+            }
+
+            if ($this->getData()['id'] != 0) {
+                $this->view->strategies = [];
+                $this->view->strategiesArgs = [];
+
+                $strategiesArr = $this->etfStrategiesPackage->getAll(true)->etfstrategies;
+
+                if ($this->view->mode === 'strategies') {
+                    $portfolio = $this->etfPortfoliosPackage->getPortfolioById((int) $this->getData()['id']);
+
+                    if (!$portfolio) {
+                        return $this->throwIdNotFound();
+                    }
+
+                    $strategiesArr = msort($strategiesArr, 'name');
+
+                    $strategies = [];
+
+                    if ($strategiesArr && count($strategiesArr) > 0) {
+                        foreach ($strategiesArr as $thisStrategy) {
+                            if (!$thisStrategy['class']) {
+                                continue;
+                            }
+
+                            if (!isset($strategies[$thisStrategy['id']])) {
+                                $strategies[$thisStrategy['id']] = [];
+                            }
+
+                            $strategies[$thisStrategy['id']]['id'] = $thisStrategy['id'];
+                            $strategies[$thisStrategy['id']]['name'] = $thisStrategy['name'];
+                            $strategies[$thisStrategy['id']]['display_name'] = $thisStrategy['display_name'];
+                            $strategies[$thisStrategy['id']]['description'] = $thisStrategy['description'];
+                            $strategies[$thisStrategy['id']]['args'] = $thisStrategy['args'];
+                        }
+                    }
+
+                    $this->view->selectedStrategy = '';
+                    $this->view->strategy = '';
+                    $this->view->strategyDescription = '';
+                    $this->view->clonePortfolioName = '';
+
+                    if (isset($this->getData()['strategy'])) {
+                        $this->view->selectedStrategy = $strategies[$this->getData()['strategy']]['id'];
+                        $this->view->strategy = strtolower($strategies[$this->getData()['strategy']]['name']);
+                        $this->view->strategyDescription = $strategies[$this->getData()['strategy']]['description'];
+                        $this->view->strategyArgs = $strategies[$this->getData()['strategy']]['args'];
+                        $this->view->weekdays = $this->basepackages->workers->schedules->getWeekdays(false);
+                        $this->view->months = $this->basepackages->workers->schedules->getMonths();
+
+                        $this->view->clonePortfolioName =
+                            $portfolio['name'] . '_clone_' . str_replace(' ', '_', (\Carbon\Carbon::now(new \DateTimeZone('Asia/Kolkata')))->toDateTimeString());
+
+                        if ($this->view->strategy === 'cpd') {
+                            $categories = $this->etfCategoriesPackage->getAll()->etfcategories;
+
+                            if ($categories && count($categories) > 0) {
+                                foreach ($categories as &$category) {
+                                    if ($category['parent_id']) {
+                                        $category['name'] = $category['name'] . ' (' . $categories[$category['parent_id']]['name'] . ')';
+                                    }
+                                }
+                            }
+
+                            $this->view->categories = $categories;
+                        }
+                    }
+
+                    $this->view->strategies = $strategies;
+                } else if ($this->view->mode === 'timeline') {
+                    $portfolio = $this->etfPortfoliosPackage->getPortfolioById((int) $this->getData()['id'], true);
+
+                    if (!$portfolio) {
+                        return $this->throwIdNotFound();
+                    }
+
+                    if ($portfolio && isset($portfolio['investments']) && count($portfolio['investments']) > 0) {
+                        if ($this->etfPortfoliostimelinePackage->timelineNeedsGeneration($portfolio)) {
+                            $this->view->weekdays = $this->basepackages->workers->schedules->getWeekdays(false);
+                            $this->view->months = $this->basepackages->workers->schedules->getMonths();
+
+                            $this->view->timeline = $this->etfPortfoliostimelinePackage->getTimeline();
+                            $this->view->timelineNeedsGeneration = true;
+                            $this->view->portfolio = $portfolio;
+
+                            $this->view->pick('portfolios/view');
+
+                            return;
+                        } else {
+                            $portfolioInvestments = [];
+
+                            array_walk($portfolio['investments'], function($investment) use (&$portfolioInvestments) {
+                                 if (!isset($this->schemes[$investment['scheme_id']])) {
+                                    $this->schemes[$investment['scheme_id']] = $this->schemesPackage->getById($investment['scheme_id']);
+                                 }
+
+                                $portfolioInvestments[$investment['scheme_id']] = $this->schemes[$investment['scheme_id']]['name'];
+                            });
+
+                            $this->view->portfolioInvestments = $portfolioInvestments;
+
+                            $this->getProcessedPortfolioPerformancesChunks($portfolio);
+
+                            $this->view->portfolioPerformancesChunks = $portfolio['performances_chunks']['performances_chunks'];
+
+                            unset($portfolio['performances_chunks']['performances_chunks']);
+
+                            $getTimelineDate = $portfolio['start_date'];
+
+                            if (isset($this->getData()['date'])) {
+                                try {
+                                    $getTimelineDate = (\Carbon\Carbon::parse($this->getData()['date']))->toDateString();
+                                } catch (\throwable $e) {
+                                    return $this->throwIdNotFound();
+                                }
+                            }
+
+                            $portfolioId = $portfolio['id'];
+
+                            $portfolio = $this->etfPortfoliostimelinePackage->getPortfoliotimelineByPortfolioAndTimeline($portfolio, $getTimelineDate);
+
+                            if (!$portfolio) {
+                                return $this->throwIdNotFound();
+                            }
+
+                            $portfolio['id'] = $portfolioId;
+
+                            $this->view->timelineBorwserOptions = $this->etfPortfoliostimelinePackage->getAvailableTimelineBrowserOptions();
+                            $this->view->timelineBrowse = 'transaction';
+
+                            if (isset($this->getData()['browse'])) {
+                                $browseKeys = array_keys($this->view->timelineBorwserOptions);
+
+                                if (in_array(strtolower($this->getData()['browse']), $browseKeys)) {
+                                    $this->view->timelineBrowse = strtolower($this->getData()['browse']);
+                                }
+                            }
+                        }
+                    } else {
+                        $this->view->mode = 'transact';
+                    }
+                } else {
+                    $portfolio = $this->etfPortfoliosPackage->getPortfolioById((int) $this->getData()['id']);
+
+                    $portfolioInvestments = [];
+
+                    if ($portfolio['investments'] && count($portfolio['investments']) > 0) {
+                        array_walk($portfolio['investments'], function($investment) use (&$portfolioInvestments) {
+                             if (!isset($this->schemes[$investment['scheme_id']])) {
+                                $this->schemes[$investment['scheme_id']] = $this->schemesPackage->getById($investment['scheme_id']);
+                             }
+
+                            $portfolioInvestments[$investment['scheme_id']] = $this->schemes[$investment['scheme_id']]['name'];
+                        });
+                    }
+
+                    $this->view->portfolioInvestments = $portfolioInvestments;
+
+                    $this->getProcessedPortfolioPerformancesChunks($portfolio);
+
+                    $this->view->portfolioPerformancesChunks = $portfolio['performances_chunks']['performances_chunks'];
+
+                    unset($portfolio['performances_chunks']['performances_chunks']);
+
+                    if (!$portfolio) {
+                        return $this->throwIdNotFound();
+                    }
+                }
+
+                if ($portfolio['investments'] && count($portfolio['investments']) > 0) {
+                    foreach ($portfolio['investments'] as $schemeId => &$investment) {
+                         if (isset($this->schemes[$schemeId])) {
+                            $portfolio['investments'][$schemeId]['scheme'] = $this->schemes[$schemeId];
+                         } else {
+                            $this->schemes[$schemeId] =
+                                $portfolio['investments'][$schemeId]['scheme'] =
+                                    $this->schemesPackage->getById($schemeId);
+                         }
+
+                        array_walk($investment, function($value, $key) use (&$investment) {
+                            if ($key === 'amount' ||
+                                $key === 'sold_amount' ||
+                                $key === 'latest_value' ||
+                                $key === 'diff'
+                            ) {
+                                if ($value) {
+                                    $investment[$key] =
+                                        str_replace('EN_ ',
+                                                '',
+                                                (new \NumberFormatter('en_IN', \NumberFormatter::CURRENCY))
+                                                    ->formatCurrency($value, 'en_IN')
+                                    );
+                                }
+                            }
+                        });
+                    }
+                }
+
+                if ($portfolio['transactions'] && count($portfolio['transactions']) > 0) {
+                    $this->schemesPackage = $this->usepackage(EtfSchemes::class);
+
+                    foreach ($portfolio['transactions'] as $transactionId => &$transaction) {
+                        if (isset($this->schemes[$transaction['scheme_id']])) {
+                            $portfolio['transactions'][$transactionId]['scheme'] = $this->schemes[$transaction['scheme_id']];
+                        } else {
+                            $this->schemes[$transaction['scheme_id']] =
+                                $portfolio['transactions'][$transactionId]['scheme'] =
+                                    $this->schemesPackage->getById($transaction['scheme_id']);
+                        }
+
+                        array_walk($transaction, function($value, $key) use (&$transaction) {
+                            if ($key === 'amount' ||
+                                $key === 'available_amount' ||
+                                $key === 'latest_value' ||
+                                $key === 'diff'
+                            ) {
+                                if ($value && is_float($value)) {
+                                    $transaction[$key] =
+                                        str_replace('EN_ ',
+                                                '',
+                                                (new \NumberFormatter('en_IN', \NumberFormatter::CURRENCY))
+                                                    ->formatCurrency($value, 'en_IN')
+                                    );
+                                }
+                            }
+                        });
+
+                        if (isset($transaction['strategy_id'])) {
+                            if ($strategiesArr &&
+                                count($strategiesArr) > 0 &&
+                                isset($transaction['strategy_id']) &&
+                                isset($strategiesArr[$transaction['strategy_id']]['name'])
+                            ) {
+                                $portfolio['transactions'][$transactionId]['strategy_id'] = strtoupper($strategiesArr[$transaction['strategy_id']]['name']);
+                            } else {
+                                $portfolio['transactions'][$transactionId]['strategy_id'] = '-';
+                            }
+                        }
+
+                        if (!isset($transaction['strategy_id'])) {
+                            $portfolio['transactions'][$transactionId]['strategy_id'] = '-';
+                        }
+
+                        if (isset($transaction['transactions']) && count($transaction['transactions']) > 0) {
+                            $transaction['transactions'] = msort(array: $transaction['transactions'], key: 'id', order: SORT_DESC, preserveKey: true);
+                        }
+                    }
+
+                    $portfolio['transactions'] = msort(array: $portfolio['transactions'], key: 'date', preserveKey: true);
+                    $portfolio['transactions'] = array_reverse($portfolio['transactions'], true);
+                }
+
+                array_walk($portfolio, function($value, $key) use (&$portfolio) {
+                    if ($key === 'invested_amount' ||
+                        $key === 'return_amount' ||
+                        $key === 'sold_amount' ||
+                        $key === 'total_value' ||
+                        $key === 'profit_loss'
+                    ) {
+                        if ($value) {
+                            $portfolio[$key] =
+                                str_replace('EN_ ',
+                                        '',
+                                        (new \NumberFormatter('en_IN', \NumberFormatter::CURRENCY))
+                                            ->formatCurrency($value, 'en_IN')
+                            );
+                        }
+                    }
+                });
+
+                if (!$portfolio['xirr']) {
+                    $portfolio['xirr'] = 0;
+                }
+
+                $this->view->portfolio = $portfolio;
+            }
+
+            $this->view->pick('portfolios/view');
+
+            return;
+        }
+
+        $conditions =
+            [
+                'conditions'                => '-|account_id|equals|' . $this->access->auth->account()['id'] . '&'
+            ];
+
+        $controlActions =
+            [
+                'includeQ'              => true,
+                'actionsToEnable'       =>
+                [
+                    'view'      => [
+                        'title' => 'transact',
+                        'icon'  => 'exchange-alt',
+                        'type'  => 'primary',
+                        'link'  => 'etf/portfolios/q/mode/transact'
+                    ],
+                    'edit'      => 'etf/portfolios/q/mode/edit',
+                    'remove'    => 'etf/portfolios/remove/q/',
+                    'divider'   => '',
+                    'etfClone'   =>
+                        [
+                            'title'             => 'Clone',
+                            'icon'              => 'clone',
+                            'additionalClass'   => 'clone',
+                            'link'              => 'etf/portfolios/clone/q'
+                        ],
+                    'timeline'  => [
+                        'title'             => 'Timeline',
+                        'icon'              => 'timeline',
+                        'buttonType'        => 'info',
+                        'additionalClass'   => 'timelineMode contentAjaxLink',
+                        'link'              => 'etf/portfolios/q/mode/timeline'
+                    ],
+                    'strategies'  => [
+                        'title'             => 'Strategies',
+                        'icon'              => 'shuffle',
+                        'buttonType'        => 'warning',
+                        'additionalClass'   => 'strategiesMode contentAjaxLink',
+                        'link'              => 'etf/portfolios/q/mode/strategies'
+                    ]
+                ]
+            ];
+
+        $replaceColumns =
+            function ($dataArr) use ($users) {
+                if ($dataArr && is_array($dataArr) && count($dataArr) > 0) {
+                    foreach ($dataArr as $key => &$data) {
+                        if ($data['account_id'] !== $this->access->auth->account()['id']) {
+                            unset($dataArr[$key]);
+                        } else {
+                            array_walk($data, function($value, $key) use (&$data, $users) {
+                                if ($key === 'invested_amount' ||
+                                    $key === 'return_amount' ||
+                                    $key === 'total_value'
+                                ) {
+                                    if ($value) {
+                                        if ($key === 'return_amount' || $key === 'total_value') {
+                                            if (is_string($data['invested_amount'])) {
+                                                $investedAmount = (float) str_replace(',', '', $data['invested_amount']);
+                                            } else {
+                                                $investedAmount = $data['invested_amount'];
+                                            }
+
+                                            if ($value > $investedAmount) {
+                                                $color = 'success';
+                                            } else if ($value < $investedAmount) {
+                                                $color = 'danger';
+                                            } else if ($value === $investedAmount) {
+                                                $color = 'primary';
+                                            }
+
+                                            $data[$key] = '<span class="text-' . $color . '">' .
+                                                str_replace('EN_ ',
+                                                        '',
+                                                        (new \NumberFormatter('en_IN', \NumberFormatter::CURRENCY))
+                                                            ->formatCurrency($value, 'en_IN')
+                                                ) .
+                                                '</span>';
+                                        } else {
+                                            $data[$key] =
+                                                str_replace('EN_ ',
+                                                        '',
+                                                        (new \NumberFormatter('en_IN', \NumberFormatter::CURRENCY))
+                                                            ->formatCurrency($value, 'en_IN')
+                                            );
+                                        }
+                                    }
+                                }
+
+                                if (isset($users[$data['user_id']])) {
+                                    $data['user_id'] =
+                                        $users[$data['user_id']]['first_name'] . ' ' . $users[$data['user_id']]['last_name'] . ' (' . $data['user_id'] . ')';
+                                }
+                            });
+
+                            if ($data['xirr'] < 0) {
+                                $data['xirr'] = '<span class="text-danger">' . $data['xirr'] . '</span>';
+                            } else if ($data['xirr'] > 0) {
+                                $data['xirr'] = '<span class="text-success">' . $data['xirr'] . '</span>';
+                            } else if ($data['xirr'] === 0) {
+                                $data['xirr'] = '<span class="text-primary">' . $data['xirr'] . '</span>';
+                            }
+
+                            if (!isset($data['is_clone'])) {
+                                $data['is_clone'] = 'NO';
+                            }
+
+                            if ($data['is_clone'] == '1') {
+                                $data['is_clone'] = 'YES';
+                            } else {
+                                $data['is_clone'] = 'NO';
+                            }
+                        }
+                    }
+                }
+
+                return $dataArr;
+            };
+
+        $this->generateDTContent(
+            package: $this->etfPortfoliosPackage,
+            postUrl: 'etf/portfolios/view',
+            postUrlParams: $conditions,
+            columnsForTable: ['account_id', 'name', 'user_id', 'invested_amount', 'return_amount', 'total_value', 'xirr', 'is_clone'],
+            withFilter : true,
+            columnsForFilter : ['name', 'user_id', 'invested_amount', 'return_amount', 'total_value', 'xirr', 'is_clone'],
+            controlActions : $controlActions,
+            dtNotificationTextFromColumn: 'name',
+            excludeColumns : ['account_id'],
+            dtReplaceColumns: $replaceColumns,
+            dtReplaceColumnsTitle : ['invested_amount' => $this->view->currencySymbol . ' Invested Amount', 'return_amount' => $this->view->currencySymbol . ' Return Amount', 'total_value' => $this->view->currencySymbol . ' Total Value', 'user_id' => 'User (id)']
+        );
+
+        $this->view->pick('portfolios/list');
+    }
+
+    /**
+     * @acl(name=add)
+     */
+    public function addAction()
+    {
+        $this->requestIsPost();
+
+        $this->etfPortfoliosPackage->addPortfolio($this->postData());
+
+        $this->addResponse(
+            $this->etfPortfoliosPackage->packagesData->responseMessage,
+            $this->etfPortfoliosPackage->packagesData->responseCode,
+            $this->etfPortfoliosPackage->packagesData->responseData ?? []
+        );
+    }
+
+    /**
+     * @acl(name=update)
+     */
+    public function updateAction()
+    {
+        $this->requestIsPost();
+
+        $this->etfPortfoliosPackage->updatePortfolio($this->postData());
+
+        $this->addResponse(
+            $this->etfPortfoliosPackage->packagesData->responseMessage,
+            $this->etfPortfoliosPackage->packagesData->responseCode,
+            $this->etfPortfoliosPackage->packagesData->responseData ?? []
+        );
+    }
+
+    /**
+     * @acl(name=remove)
+     */
+    public function removeAction()
+    {
+        $this->requestIsPost();
+
+        $this->etfPortfoliosPackage->removePortfolio($this->postData());
+
+        $this->addResponse(
+            $this->etfPortfoliosPackage->packagesData->responseMessage,
+            $this->etfPortfoliosPackage->packagesData->responseCode,
+            $this->etfPortfoliosPackage->packagesData->responseData ?? []
+        );
+    }
+
+    public function getProcessedPortfolioPerformancesChunks(&$portfolio)
+    {
+        foreach (['week', 'month', 'threeMonth', 'sixMonth', 'year', 'threeYear', 'fiveYear', 'tenYear', 'all'] as $time) {
+            if ($time === 'week') {
+                if (!isset($portfolio['performances_chunks']['performances_chunks'][$time])) {
+                    $portfolio['performances_chunks']['performances_chunks'][$time] = false;
+                    $chunks = false;
+                }
+            } else if ($time !== 'week' && $time !== 'all') {
+                if (isset($portfolio['performances_chunks']['performances_chunks'][$time]) &&
+                    count($portfolio['performances_chunks']['performances_chunks'][$time]) > 0
+                ) {
+                    $portfolio['performances_chunks']['performances_chunks'][$time] = true;
+                    $chunks = true;
+                } else {
+                    $portfolio['performances_chunks']['performances_chunks'][$time] = false;
+                    $chunks = false;
+                }
+            } else if ($time === 'all') {
+                if (isset($portfolio['performances_chunks']['performances_chunks'][$time]) &&
+                    count($portfolio['performances_chunks']['performances_chunks'][$time]) > 365
+                ) {
+                    $portfolio['performances_chunks']['performances_chunks'][$time] = true;
+                    $chunks = true;
+                }
+            }
+        }
+
+        foreach ($portfolio['performances_chunks']['performances_chunks'] as $chunks) {
+            if ($chunks) {
+                return true;
+            }
+        }
+
+        $portfolio['performances_chunks']['performances_chunks'] = false;
+    }
+
+    /**
+     * @acl(name=remove)
+     */
+    public function cloneAction()
+    {
+        $this->requestIsPost();
+
+        $this->etfPortfoliosPackage->clonePortfolio($this->postData());
+
+        $this->addResponse(
+            $this->etfPortfoliosPackage->packagesData->responseMessage,
+            $this->etfPortfoliosPackage->packagesData->responseCode,
+            $this->etfPortfoliosPackage->packagesData->responseData ?? []
+        );
+    }
+
+    public function recalculatePortfolioAction()
+    {
+        $this->requestIsPost();
+
+        if (isset($this->postData()['timelineDate'])) {
+            $portfolio = $this->etfPortfoliosPackage->getPortfolioById((int) $this->postData()['portfolio_id'], true);
+
+            if ($portfolio) {
+                $this->etfPortfoliostimelinePackage->forceRecalculateTimeline(
+                    $portfolio,
+                    $this->postData()['timelineDate'],
+                );
+
+                $this->addResponse(
+                    $this->etfPortfoliostimelinePackage->packagesData->responseMessage,
+                    $this->etfPortfoliostimelinePackage->packagesData->responseCode,
+                    $this->etfPortfoliostimelinePackage->packagesData->responseData ?? []
+                );
+
+                return true;
+            }
+
+            return $this->throwIdNotFound();
+        } else {
+            $this->etfPortfoliosPackage->recalculatePortfolio($this->postData());
+
+            $this->addResponse(
+                $this->etfPortfoliosPackage->packagesData->responseMessage,
+                $this->etfPortfoliosPackage->packagesData->responseCode,
+                $this->etfPortfoliosPackage->packagesData->responseData ?? []
+            );
+        }
+    }
+
+    public function getPortfolioTimelineDateByBrowseActionAction()
+    {
+        $this->requestIsPost();
+
+        $portfolio = $this->etfPortfoliosPackage->getPortfolioById((int) $this->postData()['portfolio_id'], true, true, true, false);
+
+        if ($portfolio) {
+            $this->etfPortfoliostimelinePackage->getPortfolioTimelineDateByBrowseAction($portfolio, $this->postData());
+
+            $this->addResponse(
+                $this->etfPortfoliostimelinePackage->packagesData->responseMessage,
+                $this->etfPortfoliostimelinePackage->packagesData->responseCode,
+                $this->etfPortfoliostimelinePackage->packagesData->responseData ?? []
+            );
+
+            return true;
+        }
+
+        return $this->throwIdNotFound();
+    }
+
+    public function procsessTimelineNeedsGenerationAction()
+    {
+        try {
+            $this->requestIsPost();
+
+            $this->etfPortfoliostimelinePackage->processTimelineNeedsGeneration($this->postData());
+
+            $this->addResponse(
+                $this->etfPortfoliostimelinePackage->packagesData->responseMessage,
+                $this->etfPortfoliostimelinePackage->packagesData->responseCode,
+                $this->etfPortfoliostimelinePackage->packagesData->responseData ?? []
+            );
+        } catch (\Exception $e) {
+            $this->addResponse($e->getMessage(), 1);
+        }
+    }
+
+    public function getStrategiesTransactionsAction()
+    {
+        try {
+            $this->requestIsPost();
+
+            $this->etfStrategiesPackage->getStrategiesTransactions($this->postData());
+
+            $this->addResponse(
+                $this->etfStrategiesPackage->packagesData->responseMessage,
+                $this->etfStrategiesPackage->packagesData->responseCode,
+                $this->etfStrategiesPackage->packagesData->responseData ?? []
+            );
+        } catch (\Exception $e) {
+            $this->addResponse($e->getMessage(), 1);
+        }
+    }
+
+    public function applyStrategyAction()
+    {
+        try {
+            $this->requestIsPost();
+
+            $this->etfStrategiesPackage->applyStrategy($this->postData());
+
+            $this->addResponse(
+                $this->etfStrategiesPackage->packagesData->responseMessage,
+                $this->etfStrategiesPackage->packagesData->responseCode,
+                $this->etfStrategiesPackage->packagesData->responseData ?? []
+            );
+        } catch (\Exception $e) {
+            $this->addResponse($e->getMessage(), 1);
+        }
+    }
+
+    public function getPortfolioPerformancesChunksAction()
+    {
+        $this->requestIsPost();
+
+        $this->etfPortfoliosPackage->getPortfolioPerformancesChunks($this->postData());
+
+        $this->addResponse(
+            $this->etfPortfoliosPackage->packagesData->responseMessage,
+            $this->etfPortfoliosPackage->packagesData->responseCode,
+            $this->etfPortfoliosPackage->packagesData->responseData ?? []
+        );
+    }
+}
