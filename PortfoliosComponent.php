@@ -70,13 +70,6 @@ class PortfoliosComponent extends BaseComponent
         $this->schemesPackage = $this->usePackage(EtfSchemes::class);
 
         $this->view->currencySymbol = '$';
-        if (isset($this->access->auth->account()['profile']['locale_country_id']) && $this->access->auth->account()['profile']['locale_country_id'] !== 0) {
-            $country = $this->basepackages->geoCountries->getById((int) $this->access->auth->account()['profile']['locale_country_id']);
-
-            if ($country && isset($country['currency_symbol'])) {
-                $this->view->currencySymbol = $country['currency_symbol'];
-            }
-        }
 
         $users = $this->accountsUsersPackage->getAccountsUserByAccountId($this->access->auth->account()['id']);
 
@@ -267,6 +260,10 @@ class PortfoliosComponent extends BaseComponent
                 } else {
                     $portfolio = $this->etfPortfoliosPackage->getPortfolioById((int) $this->getData()['id']);
 
+                    if (!$portfolio) {
+                        return $this->throwIdNotFound();
+                    }
+
                     $portfolioInvestments = [];
 
                     if ($portfolio['investments'] && count($portfolio['investments']) > 0) {
@@ -286,10 +283,6 @@ class PortfoliosComponent extends BaseComponent
                     $this->view->portfolioPerformancesChunks = $portfolio['performances_chunks']['performances_chunks'];
 
                     unset($portfolio['performances_chunks']['performances_chunks']);
-
-                    if (!$portfolio) {
-                        return $this->throwIdNotFound();
-                    }
                 }
 
                 if ($portfolio['investments'] && count($portfolio['investments']) > 0) {

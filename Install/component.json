@@ -128,5 +128,22 @@
 		"seq" : "0"
 	},
 	"settings" : [],
-	"widgets" : []
+	"widgets" : 
+	[
+		{
+			"name" : "ETF Portfolio",
+			"method" : "etfPortfolio",
+			"multiple" : true,
+			"max_multiple" : 5,
+			"settings" : []
+		},
+		
+		{
+			"name" : "ETF Portfolios (Consolidated)",
+			"method" : "etfPortfolios",
+			"multiple" : true,
+			"max_multiple" : 5,
+			"settings" : []
+		}
+	]
 }
