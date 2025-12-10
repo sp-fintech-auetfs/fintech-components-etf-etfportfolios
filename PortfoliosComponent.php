@@ -619,9 +619,6 @@ class PortfoliosComponent extends BaseComponent
         $portfolio['performances_chunks']['performances_chunks'] = false;
     }
 
-    /**
-     * @acl(name=remove)
-     */
     public function cloneAction()
     {
         $this->requestIsPost();
