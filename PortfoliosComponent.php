@@ -268,9 +268,9 @@ class PortfoliosComponent extends BaseComponent
 
                     if ($portfolio['investments'] && count($portfolio['investments']) > 0) {
                         array_walk($portfolio['investments'], function($investment) use (&$portfolioInvestments) {
-                             if (!isset($this->schemes[$investment['scheme_id']])) {
+                            if (!isset($this->schemes[$investment['scheme_id']])) {
                                 $this->schemes[$investment['scheme_id']] = $this->schemesPackage->getById($investment['scheme_id']);
-                             }
+                            }
 
                             $portfolioInvestments[$investment['scheme_id']] = $this->schemes[$investment['scheme_id']]['name'];
                         });
@@ -287,13 +287,13 @@ class PortfoliosComponent extends BaseComponent
 
                 if ($portfolio['investments'] && count($portfolio['investments']) > 0) {
                     foreach ($portfolio['investments'] as $schemeId => &$investment) {
-                         if (isset($this->schemes[$schemeId])) {
+                        if (isset($this->schemes[$schemeId])) {
                             $portfolio['investments'][$schemeId]['scheme'] = $this->schemes[$schemeId];
-                         } else {
+                        } else {
                             $this->schemes[$schemeId] =
                                 $portfolio['investments'][$schemeId]['scheme'] =
                                     $this->schemesPackage->getById($schemeId);
-                         }
+                        }
 
                         array_walk($investment, function($value, $key) use (&$investment) {
                             if ($key === 'amount' ||
@@ -743,6 +743,27 @@ class PortfoliosComponent extends BaseComponent
         $this->requestIsPost();
 
         $this->etfPortfoliosPackage->getPortfolioPerformancesChunks($this->postData());
+
+        $this->addResponse(
+            $this->etfPortfoliosPackage->packagesData->responseMessage,
+            $this->etfPortfoliosPackage->packagesData->responseCode,
+            $this->etfPortfoliosPackage->packagesData->responseData ?? []
+        );
+    }
+
+    public function calculatePercentDiffAction()
+    {
+        $this->requestIsPost();
+
+        if (!isset($this->postData()['calculateMain']) ||
+            !isset($this->postData()['calculateWith'])
+        ) {
+            $this->addResponse('Please provide main and with categories', 1);
+
+            return false;
+        }
+
+        $this->etfPortfoliosPackage->calculatePercentDiff($this->postData()['calculateMain'], $this->postData()['calculateWith']);
 
         $this->addResponse(
             $this->etfPortfoliosPackage->packagesData->responseMessage,

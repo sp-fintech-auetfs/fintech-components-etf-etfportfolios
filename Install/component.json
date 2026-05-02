@@ -127,7 +127,6 @@
 		},
 		"seq" : "0"
 	},
-	"settings" : [],
 	"widgets" : 
 	[
 		{
@@ -145,5 +144,6 @@
 			"max_multiple" : 5,
 			"settings" : []
 		}
-	]
+	],
+	"settings" : []
 }
