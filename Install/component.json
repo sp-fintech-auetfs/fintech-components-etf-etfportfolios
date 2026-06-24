@@ -13,7 +13,7 @@
 		"core" : 
 		{
 			"name" : "Core",
-			"version" : "0.0.0-rc.12",
+			"version" : "0.0.0-rc.16",
 			"repo" : "https://github.com/sp-framework/core"
 		},
 		"apptype" : 
@@ -26,37 +26,37 @@
 		[
 			{
 				"name" : "AccountsUsers",
-				"version" : "0.2.0",
+				"version" : "0.8.0",
 				"repo" : "https://github.com/sp-fintech/fintech-packages-accounts-accountsusers"
 			},
 			
 			{
 				"name" : "AccountingAccounts",
-				"version" : "0.1.0",
+				"version" : "0.2.0",
 				"repo" : "https://github.com/sp-fintech/fintech-packages-tools-accountingaccounts"
 			},
 			
 			{
 				"name" : "AccountingBooks",
-				"version" : "0.1.0",
+				"version" : "0.3.0",
 				"repo" : "https://github.com/sp-fintech/fintech-packages-tools-accountingbooks"
 			},
 			
 			{
 				"name" : "AccountingTransactions",
-				"version" : "0.1.0",
+				"version" : "0.3.0",
 				"repo" : "https://github.com/sp-fintech/fintech-packages-tools-accountingtransactions"
 			},
 			
 			{
 				"name" : "EtfPortfolios",
-				"version" : "0.0.0",
+				"version" : "0.3.0",
 				"repo" : "https://github.com/sp-fintech-auetfs/fintech-packages-etf-etfportfolios"
 			},
 			
 			{
 				"name" : "EtfTransactions",
-				"version" : "0.0.0",
+				"version" : "0.1.0",
 				"repo" : "https://github.com/sp-fintech-auetfs/fintech-packages-etf-etftransactions"
 			},
 			
@@ -68,7 +68,7 @@
 			
 			{
 				"name" : "EtfPortfoliostimeline",
-				"version" : "0.0.0",
+				"version" : "0.2.0",
 				"repo" : "https://github.com/sp-fintech-auetfs/fintech-packages-etf-etfportfoliostimeline"
 			},
 			
@@ -80,7 +80,7 @@
 			
 			{
 				"name" : "EtfStrategies",
-				"version" : "0.0.0",
+				"version" : "0.2.0",
 				"repo" : "https://github.com/sp-fintech-auetfs/fintech-packages-etf-etfstrategies"
 			}
 		],
@@ -89,7 +89,7 @@
 		[
 			{
 				"name" : "MfPortfolios",
-				"version" : "0.0.0",
+				"version" : "0.18.0",
 				"repo" : "https://github.com/sp-fintech-mutualfunds/fintech-views-mutualfunds-default-mfportfolios"
 			}
 		],
